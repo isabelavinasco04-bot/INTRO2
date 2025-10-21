@@ -1,62 +1,81 @@
 import streamlit as st
+import whisper
+import tempfile
 from PIL import Image
 
-st.title(" Mi Primera App!!")
+# 🌸 Estilos personalizados (CSS)
+st.markdown("""
+    <style>
+    body {
+        background-color: #fff6fb;
+        color: #333333;
+        font-family: 'Poppins', sans-serif;
+    }
+    .stButton>button {
+        background-color: #ff66b3;
+        color: white;
+        border-radius: 10px;
+        border: none;
+        padding: 10px 20px;
+        font-weight: 600;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #ff3385;
+        transform: scale(1.05);
+    }
+    .css-1d391kg {
+        background-color: #ffe0ef !important;
+    }
+    h1, h2, h3 {
+        color: #ff3385;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-st.header("En este espacio comienzo a desarrollar mis aplicaciones para interfaces multimodales.")
-st.write("Facilmente puedo realizar backend y frontend.")
-image = Image.open('Interfaces Mult2.png')
+# 🌷 Título
+st.title("🎧 Conversor de Audio a Texto")
+st.write("Convierte fácilmente tus grabaciones en texto. Solo sube el archivo y deja que la magia suceda 💫")
 
-st.image(image, caption='Interfaces multimodales')
+# 🌼 Imagen decorativa
+image = Image.open("Interfaces Mult2.png")
+st.image(image, caption="Interfaces multimodales", use_column_width=True)
 
+# 🎵 Subir audio
+audio_file = st.file_uploader("📂 Sube tu archivo de audio (mp3, wav, m4a, etc.)", type=["mp3", "wav", "m4a"])
 
-texto = st.text_input('Escribe algo', 'Este es mi texto')
-st.write('El texto escrito es', texto)
+if audio_file is not None:
+    st.audio(audio_file, format="audio/mp3")
+    st.write("✨ Procesando tu audio... espera un momento ⏳")
 
-st.subheader("Ahora usemos 2 Columnas")
+    # Guardar archivo temporalmente
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+        temp_file.write(audio_file.read())
+        temp_path = temp_file.name
 
-col1, col2 = st.columns(2)
+    # Cargar modelo Whisper
+    model = whisper.load_model("tiny")
+    result = model.transcribe(temp_path, language="es")
 
-with col1:
-    st.subheader("Esta es la primera columna")
-    st.write("Las interfaces multimodales mejoran la experiencia de usuario")
-    resp = st.checkbox('Estoy de acuerdo')
-    if resp:
-       st.write('Correcto!')
-  
-with col2:
-    st.subheader("Esta es la segunda columna")
-    modo = st.radio("Que Modalidad es la principal en tu interfaz", ('Visual', 'auditiva', 'Táctil'))
-    if modo == 'Visual':
-       st.write('La vista es fundamental para tu interfaz')
-    if modo == 'auditiva':
-       st.write('La audición es fundamental para tu interfaz')
-    if modo == 'Táctil':
-       st.write('El tacto es fundamental para tu interfaz')
-        
-st.subheader("Uso de Botones")
-if st.button('Presiona el botón'):
-    st.write('Gracias por presionar')
-else:
-    st.write('No has presionado aún')
+    # Mostrar transcripción
+    st.subheader("📝 Transcripción:")
+    st.success(result["text"])
 
-st.subheader("Selectbox")
-in_mod = st.selectbox(
-    "Selecciona la modalidad",
-    ("Audio", "Visual", "Háptico"),
-)
-if in_mod == "Audio":
-    set_mod = "Reproducir audio"
-elif in_mod == "Visual":
-    set_mod = "Reproducir video"
-elif in_mod == "Háptico":
-    set_mod = "Activar vibración"
-st.write(" La acción es:" , set_mod)
-
-
-with st.sidebar:
-    st.subheader("Configura la modalidad")
-    mod_radio = st.radio(
-        "Escoge la modalidad a usar",
-        ("Visual", "Auditiva","Háptica")
+    # Botón de descarga
+    st.download_button(
+        label="⬇️ Descargar transcripción",
+        data=result["text"],
+        file_name="transcripcion.txt",
+        mime="text/plain"
     )
+
+# 🌸 Sidebar
+with st.sidebar:
+    st.header("⚙️ Configuración")
+    st.write("Selecciona el modelo de Whisper:")
+    model_choice = st.radio(
+        "Modelo",
+        ("tiny", "base", "small", "medium", "large"),
+        index=0
+    )
+    st.write("🌟 Mientras más grande el modelo, mejor precisión (pero más lento).")
