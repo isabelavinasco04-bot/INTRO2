@@ -1,81 +1,88 @@
 import streamlit as st
-import whisper
+import os
 import tempfile
+import whisper
 from PIL import Image
 
-# 🌸 Estilos personalizados (CSS)
-st.markdown("""
-    <style>
-    body {
-        background-color: #fff6fb;
-        color: #333333;
-        font-family: 'Poppins', sans-serif;
-    }
-    .stButton>button {
-        background-color: #ff66b3;
-        color: white;
-        border-radius: 10px;
-        border: none;
-        padding: 10px 20px;
-        font-weight: 600;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        background-color: #ff3385;
-        transform: scale(1.05);
-    }
-    .css-1d391kg {
-        background-color: #ffe0ef !important;
-    }
-    h1, h2, h3 {
-        color: #ff3385;
-    }
-    </style>
-""", unsafe_allow_html=True)
+# ---------- Configuración ----------
+st.set_page_config(page_title="🎧 Audio a Texto", page_icon="🎙️", layout="centered")
 
-# 🌷 Título
 st.title("🎧 Conversor de Audio a Texto")
-st.write("Convierte fácilmente tus grabaciones en texto. Solo sube el archivo y deja que la magia suceda 💫")
+st.write("Sube tu archivo de audio y convierte tu voz en texto fácilmente 💫")
 
-# 🌼 Imagen decorativa
-image = Image.open("Interfaces Mult2.png")
-st.image(image, caption="Interfaces multimodales", use_column_width=True)
+# Imagen decorativa (opcional)
+try:
+    image = Image.open("Zayn2.jpg")
+    st.image(image, caption="Transcripción con IA", use_container_width=True)
+except Exception:
+    st.info("Pon una imagen llamada 'Zayn2.jpg' en la carpeta para mostrarla 😊")
 
-# 🎵 Subir audio
-audio_file = st.file_uploader("📂 Sube tu archivo de audio (mp3, wav, m4a, etc.)", type=["mp3", "wav", "m4a"])
+# ---------- Subida de archivo ----------
+uploaded_audio = st.file_uploader(
+    "📂 Sube un archivo de audio (.mp3, .wav, .m4a, .flac, .ogg)",
+    type=["mp3", "wav", "m4a", "flac", "ogg"]
+)
 
-if audio_file is not None:
-    st.audio(audio_file, format="audio/mp3")
-    st.write("✨ Procesando tu audio... espera un momento ⏳")
+# ---------- Selección de idioma ----------
+stt_lang = st.selectbox(
+    "🌎 Idioma del audio (puedes dejarlo en Auto)",
+    ["Auto", "Español", "English", "Italiano"],
+    index=0
+)
+lang_map = {"Auto": None, "Español": "es", "English": "en", "Italiano": "it"}
 
-    # Guardar archivo temporalmente
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
-        temp_file.write(audio_file.read())
-        temp_path = temp_file.name
+# ---------- Selección del modelo ----------
+model_name = st.selectbox(
+    "🧠 Modelo Whisper",
+    ["tiny", "base", "small"],
+    index=0,
+    help="‘tiny’ es rápido, ‘base’ y ‘small’ son más precisos pero más lentos."
+)
 
-    # Cargar modelo Whisper
-    model = whisper.load_model("tiny")
-    result = model.transcribe(temp_path, language="es")
+# ---------- Transcripción ----------
+if st.button("🚀 Transcribir Audio"):
+    if not uploaded_audio:
+        st.warning("Por favor, sube un archivo de audio primero.")
+    else:
+        with st.spinner("Transcribiendo tu audio... 🎶"):
+            try:
+                # Guardar archivo temporal
+                suffix = os.path.splitext(uploaded_audio.name)[1]
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    tmp.write(uploaded_audio.read())
+                    tmp_path = tmp.name
 
-    # Mostrar transcripción
-    st.subheader("📝 Transcripción:")
-    st.success(result["text"])
+                # Cargar modelo Whisper
+                model = whisper.load_model(model_name)
+                result = model.transcribe(
+                    tmp_path,
+                    language=lang_map[stt_lang],
+                    task="transcribe"
+                )
 
-    # Botón de descarga
-    st.download_button(
-        label="⬇️ Descargar transcripción",
-        data=result["text"],
-        file_name="transcripcion.txt",
-        mime="text/plain"
-    )
+                transcript = (result or {}).get("text", "").strip()
 
-# 🌸 Sidebar
+                if transcript:
+                    st.success("✨ ¡Transcripción completada!")
+                    st.text_area("📝 Texto obtenido:", value=transcript, height=200)
+                    st.download_button(
+                        "⬇️ Descargar transcripción",
+                        data=transcript.encode("utf-8"),
+                        file_name="transcripcion.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.error("No se obtuvo texto. Prueba con otro modelo o revisa el audio.")
+            except Exception as e:
+                st.error(f"Ocurrió un error: {e}")
+            finally:
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
+
+# ---------- Sidebar ----------
 with st.sidebar:
     st.header("⚙️ Configuración")
-    st.write("Selecciona el modelo de Whisper:")
-    model_choice = st.radio(
-        "Modelo",
-        ("tiny", "base", "small", "medium", "large"),
-        index=0
-    )
-    st.write("🌟 Mientras más grande el modelo, mejor precisión (pero más lento).")
+    st.caption("Whisper corre localmente y requiere tener instalado FFmpeg.")
+    st.caption("Modelos más grandes = mayor precisión, pero más lentos.")
